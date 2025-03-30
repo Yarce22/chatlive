@@ -20,12 +20,64 @@
   font-size: 1.5rem;
 }
 
+.users-panel h3 {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+  color: #444;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
 .users-panel input {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   margin-bottom: 15px;
+}
+
+.search-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.groups-section, .users-section {
+  margin-bottom: 20px;
+}
+
+.group-members {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 3px;
+}
+
+.group-info {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.group-info p {
+  margin: 5px 0;
+  color: #555;
+}
+
+.chat-header {
+  padding: 10px 0;
+}
+
+.chat-header h3 {
+  margin: 0;
+  color: #2185d0;
+}
+
+.member-checkbox {
+  margin: 8px 0;
 }
 
 .ui.container.fluid {

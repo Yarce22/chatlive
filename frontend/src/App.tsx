@@ -4,7 +4,7 @@ import { LogIn } from './components/LogIn'
 import { UserLogged } from './components/UserLogged'
 import { useAppDispatch, useAppSelector } from './store/hooks.js'
 import { selectUsername, selectLogged } from './store/slices/userSlice.js'
-import { selectActiveChat, selectActiveChatMessages, setActiveChat } from './store/slices/chatSlice.js'
+import { selectActiveChat, selectActiveChatMessages, selectActiveChatIsGroup } from './store/slices/chatSlice.js'
 import { selectUsersList } from './store/slices/usersSlice.js'
 import { socketActions } from './store/middleware/socketMiddleware.js'
 import './App.css'
@@ -15,6 +15,7 @@ function App() {
   const logged = useAppSelector(selectLogged);
   const usersList = useAppSelector(selectUsersList);
   const activeChat = useAppSelector(selectActiveChat);
+  const activeChatIsGroup = useAppSelector(selectActiveChatIsGroup);
   const messages = useAppSelector(selectActiveChatMessages);
   const unreadMessages = useAppSelector(state => state.chat.unreadMessages);
 
@@ -26,18 +27,33 @@ function App() {
   }
 
   const handleChatSelect = (selectedUser: string) => {
-    dispatch(setActiveChat(selectedUser));
+    dispatch({
+      type: 'chat/setActiveChat',
+      payload: { chatId: selectedUser, isGroup: false }
+    });
   }
 
-  const sendPrivateMessage = (message: string) => {
+  const sendMessage = (message: string) => {
     if (message && activeChat) {
-      dispatch({
-        type: socketActions.SEND_MESSAGE,
-        payload: {
-          message,
-          to: activeChat
-        }
-      });
+      if (activeChatIsGroup) {
+        // Enviar mensaje al grupo
+        dispatch({
+          type: socketActions.SEND_GROUP_MESSAGE,
+          payload: {
+            message,
+            groupId: activeChat
+          }
+        });
+      } else {
+        // Enviar mensaje privado
+        dispatch({
+          type: socketActions.SEND_MESSAGE,
+          payload: {
+            message,
+            to: activeChat
+          }
+        });
+      }
     }
   }
 
@@ -63,9 +79,10 @@ function App() {
             {activeChat && (
               <Chat
                 messages={messages}
-                sendMessage={sendPrivateMessage}
+                sendMessage={sendMessage}
                 recipient={activeChat}
                 currentUser={username}
+                isGroup={activeChatIsGroup}
               />
             )}
           </section>

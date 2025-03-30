@@ -1,6 +1,19 @@
 import { io, Socket } from 'socket.io-client';
 import { Middleware } from '@reduxjs/toolkit';
-import { receiveMessage, markMessageAsRead, Message, addMessage, setActiveChat, clearUnreadMessages } from '../slices/chatSlice.js';
+import { 
+  receiveMessage, 
+  markMessageAsRead, 
+  Message, 
+  addMessage, 
+  setActiveChat, 
+  clearUnreadMessages,
+  Group,
+  createGroup,
+  addGroupMessage,
+  updateGroup,
+  addMemberToGroup,
+  removeMemberFromGroup
+} from '../slices/chatSlice.js';
 import { setUsersList } from '../slices/usersSlice.js';
 import { login as userLogin } from '../slices/userSlice.js';
 
@@ -10,8 +23,25 @@ interface MessagePayload {
   to: string;
 }
 
+interface GroupMessagePayload {
+  message: string;
+  groupId: string;
+}
+
+interface CreateGroupPayload {
+  name: string;
+  members: string[];
+}
+
+interface GroupActionPayload {
+  groupId: string;
+  username?: string;
+  name?: string;
+  members?: string[];
+}
+
 // Tipo base para las acciones de socket
-type ActionPayload = string | MessagePayload | { messageId: string };
+type ActionPayload = string | MessagePayload | { messageId: string } | CreateGroupPayload | GroupMessagePayload | GroupActionPayload;
 
 interface SocketAction {
   type: string;
@@ -24,7 +54,12 @@ export const socketActions = {
   MARK_AS_READ: 'socket/markAsRead',
   LOGIN: 'socket/login',
   LOGOUT: 'socket/logout',
-  SET_ACTIVE_CHAT: 'socket/setActiveChat'
+  SET_ACTIVE_CHAT: 'socket/setActiveChat',
+  CREATE_GROUP: 'socket/createGroup',
+  SEND_GROUP_MESSAGE: 'socket/sendGroupMessage',
+  ADD_MEMBER_TO_GROUP: 'socket/addMemberToGroup',
+  REMOVE_MEMBER_FROM_GROUP: 'socket/removeMemberFromGroup',
+  UPDATE_GROUP: 'socket/updateGroup'
 };
 
 // Verificador de tipo para acciones de socket
@@ -68,7 +103,7 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
       
       // Si es el chat activo, marcar el mensaje como leído inmediatamente
       const state = store.getState();
-      if (state.chat.activeChat === data.from) {
+      if (state.chat.activeChat === data.from && !state.chat.activeChatIsGroup) {
         socket.emit('message_read', data.id);
         store.dispatch(markMessageAsRead(data.id));
       }
@@ -80,13 +115,25 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
       console.log('Mensaje enviado confirmado por el servidor:', data.id);
       
       // Actualizar el ID del mensaje si el servidor asignó uno nuevo
-      if (data.id && data.to) {
+      if (data.id) {
         // Buscar el mensaje en el estado actual y actualizarlo si es necesario
         const state = store.getState();
         const chats = state.chat.chats;
         
-        if (chats[data.to]) {
+        if (data.to && chats[data.to]) {
           const messages = chats[data.to];
+          const lastMessage = messages[messages.length - 1];
+          
+          // Si el último mensaje tiene un ID temporal diferente, actualizarlo
+          if (lastMessage && lastMessage.from === state.user.username && 
+              lastMessage.message === data.message && lastMessage.id !== data.id) {
+            // Marcar el mensaje con el ID correcto como leído si el original estaba marcado como leído
+            if (lastMessage.read) {
+              store.dispatch(markMessageAsRead(data.id));
+            }
+          }
+        } else if (data.groupId && chats[data.groupId]) {
+          const messages = chats[data.groupId];
           const lastMessage = messages[messages.length - 1];
           
           // Si el último mensaje tiene un ID temporal diferente, actualizarlo
@@ -106,6 +153,57 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
       console.log('Mensaje marcado como leído:', messageId);
       store.dispatch(markMessageAsRead(messageId));
     });
+
+    // Listeners para grupos
+    socket.on('group_created', (group: Group) => {
+      console.log('Grupo creado:', group);
+      store.dispatch(createGroup(group));
+    });
+
+    // Listener para la lista de grupos
+    socket.on('groups_list', (groups: Group[]) => {
+      console.log('Lista de grupos recibida:', groups);
+      groups.forEach(group => {
+        store.dispatch(createGroup(group));
+      });
+    });
+
+    socket.on('receive_group_message', (data: Message) => {
+      console.log('Mensaje de grupo recibido:', data);
+      store.dispatch(addGroupMessage(data));
+      
+      // Si es el chat de grupo activo, marcar el mensaje como leído inmediatamente
+      const state = store.getState();
+      if (state.chat.activeChat === data.groupId && state.chat.activeChatIsGroup) {
+        socket.emit('message_read', data.id);
+        store.dispatch(markMessageAsRead(data.id));
+      }
+    });
+
+    socket.on('group_updated', (data: {groupId: string, updates: Partial<Group>}) => {
+      console.log('Grupo actualizado:', data);
+      store.dispatch(updateGroup(data));
+    });
+
+    socket.on('member_added_to_group', (data: {groupId: string, username: string}) => {
+      console.log('Miembro añadido al grupo:', data);
+      store.dispatch(addMemberToGroup(data));
+    });
+
+    socket.on('member_removed_from_group', (data: {groupId: string, username: string}) => {
+      console.log('Miembro eliminado del grupo:', data);
+      store.dispatch(removeMemberFromGroup(data));
+    });
+
+    socket.on('removed_from_group', (data: {groupId: string}) => {
+      console.log('Has sido eliminado del grupo:', data.groupId);
+      // Si el chat activo es el grupo del que fuiste eliminado, cambiar a otro chat
+      const state = store.getState();
+      if (state.chat.activeChat === data.groupId && state.chat.activeChatIsGroup) {
+        // Cambiar a ningún chat activo
+        store.dispatch(setActiveChat({ chatId: '', isGroup: false }));
+      }
+    });
   }
 
   // Verificar que la acción tenga la estructura correcta
@@ -113,21 +211,21 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
     // Si es la acción setActiveChat, manejarla especialmente
     if (action && typeof action === 'object' && 'type' in action && action.type === setActiveChat.type) {
       const payload = 'payload' in action ? action.payload : null;
-      if (typeof payload === 'string') {
-        const newActiveChat = payload;
+      if (payload && typeof payload === 'object' && 'chatId' in payload) {
+        const { chatId, isGroup } = payload as {chatId: string, isGroup: boolean};
         const state = store.getState();
-        const messages = state.chat.chats[newActiveChat] || [];
+        const messages = state.chat.chats[chatId] || [];
         
-        console.log('Cambiando a chat activo:', newActiveChat);
+        console.log('Cambiando a chat activo:', chatId, 'isGroup:', isGroup);
         console.log('Mensajes en este chat:', messages.length);
         
         // Resetear contador de mensajes no leídos
-        store.dispatch(clearUnreadMessages(newActiveChat));
+        store.dispatch(clearUnreadMessages(chatId));
         
         // Marcar todos los mensajes no leídos como leídos
         let unreadMessagesCount = 0;
         messages.forEach((message: Message) => {
-          if (!message.read && message.from === newActiveChat) {
+          if (!message.read && ((isGroup && message.groupId === chatId) || (!isGroup && message.from === chatId))) {
             unreadMessagesCount++;
             console.log('Marcando mensaje como leído al cambiar chat:', message.id);
             socket.emit('message_read', message.id);
@@ -169,6 +267,53 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
     console.log('Enviando confirmación de lectura para mensaje:', messageId);
     socket.emit('message_read', messageId);
     store.dispatch(markMessageAsRead(messageId));
+  } else if (action.type === socketActions.CREATE_GROUP && typeof action.payload === 'object' && 'name' in action.payload && 'members' in action.payload) {
+    const payload = action.payload as CreateGroupPayload;
+    const state = store.getState();
+    
+    // Añadir al usuario actual como miembro del grupo
+    const members = [...payload.members];
+    if (!members.includes(state.user.username)) {
+      members.push(state.user.username);
+    }
+    
+    const groupData: Group = {
+      id: 'group_' + Date.now().toString(),
+      name: payload.name,
+      members: members,
+      createdBy: state.user.username
+    };
+    
+    // Enviar la solicitud de creación de grupo al servidor
+    socket.emit('create_group', groupData);
+  } else if (action.type === socketActions.SEND_GROUP_MESSAGE && typeof action.payload === 'object' && 'message' in action.payload && 'groupId' in action.payload) {
+    const payload = action.payload as GroupMessagePayload;
+    const state = store.getState();
+    
+    const messageData: Message = {
+      id: Date.now().toString(),
+      from: state.user.username,
+      message: payload.message,
+      time: new Date().toLocaleTimeString(),
+      read: false,
+      isGroupMessage: true,
+      groupId: payload.groupId
+    };
+    
+    // Añadir mensaje al estado local
+    store.dispatch(addGroupMessage(messageData));
+    
+    // Enviar mensaje al servidor
+    socket.emit('group_message', messageData);
+  } else if (action.type === socketActions.ADD_MEMBER_TO_GROUP && typeof action.payload === 'object' && 'groupId' in action.payload && 'username' in action.payload) {
+    const payload = action.payload as GroupActionPayload;
+    socket.emit('add_member_to_group', payload);
+  } else if (action.type === socketActions.REMOVE_MEMBER_FROM_GROUP && typeof action.payload === 'object' && 'groupId' in action.payload && 'username' in action.payload) {
+    const payload = action.payload as GroupActionPayload;
+    socket.emit('remove_member_from_group', payload);
+  } else if (action.type === socketActions.UPDATE_GROUP && typeof action.payload === 'object' && 'groupId' in action.payload) {
+    const payload = action.payload as GroupActionPayload;
+    socket.emit('update_group', payload);
   }
 
   // Pasar la acción al siguiente middleware
