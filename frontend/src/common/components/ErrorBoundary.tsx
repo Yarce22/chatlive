@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Message, Button, Icon } from 'semantic-ui-react';
 import { ErrorType, handleError } from '../../shared/services/errorService';
 

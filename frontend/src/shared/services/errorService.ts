@@ -71,7 +71,7 @@ class ErrorService {
 
 export const errorService = new ErrorService();
 
-export function handleError(error, errorType: ErrorType = ErrorType.Unknown, additionalData?: any): AppError {
+export function handleError(error: any, errorType: ErrorType = ErrorType.Unknown, additionalData?: any): AppError {
   let message = 'Se produjo un error desconocido';
   let errorCode;
   
@@ -87,10 +87,10 @@ export function handleError(error, errorType: ErrorType = ErrorType.Unknown, add
   return errorService.captureError(errorType, message, error instanceof Error ? error : undefined, additionalData, errorCode);
 }
 
-export function withErrorHandling<P>(Component: React.ComponentType<P>): React.FC<P> {
+export function withErrorHandling<P extends {}>(Component: React.ComponentType<P>): React.FC<P> {
   return (props: P) => {
     try {
-      return React.createElement(Component, props);
+      return React.createElement<P>(Component, props);
     } catch (error) {
       handleError(error, ErrorType.Unknown);
       return React.createElement('div', { className: 'error-boundary' }, 'Se produjo un error al renderizar este componente.');
