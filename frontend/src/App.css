@@ -74,6 +74,18 @@
   padding: 10px 0;
 }
 
+/* Estilos para las notificaciones */
+.unread-badge {
+  margin-left: 8px !important;
+  font-size: 0.7rem !important;
+  padding: 0.3em 0.6em !important;
+}
+
+.ui.list .item.active {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
 /* Estilos para el componente ScrollToBottom */
 [data-scroll-to-bottom] {
   height: 400px;

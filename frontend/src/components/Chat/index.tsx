@@ -22,7 +22,7 @@ const Chat = ({ messages, sendMessage, recipient, currentUser }: ChatProps) => {
     return (
         <Container fluid>
             <Card>
-                <CardContent header={`Chat con ${recipient}`} />
+                <CardContent header={recipient} />
                 <ScrollToBottom>
                     <CardContent>
                         {messages.map((messageData, index) => {
