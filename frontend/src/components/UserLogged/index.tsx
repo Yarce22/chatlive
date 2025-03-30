@@ -1,6 +1,8 @@
 import { List, ListItem, Image, ListContent, ListHeader, Label } from "semantic-ui-react";
 import { faker } from '@faker-js/faker'
 import { useMemo } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks.js';
+import { selectUserAvatars, addUserAvatar } from '../../store/slices/usersSlice.js';
 
 interface UserLoggedProps {
     usersList: string[];
@@ -10,17 +12,19 @@ interface UserLoggedProps {
 }
 
 const UserLogged: React.FC<UserLoggedProps> = ({ usersList, onSelectUser, activeChat, unreadMessages }) => {
+    const dispatch = useAppDispatch();
+    const userAvatars = useAppSelector(selectUserAvatars);
+    
     // Usar useMemo para crear un objeto que mapee nombres de usuario a URLs de avatar
     // Este objeto solo se recalculará cuando cambie la lista de usuarios
-    const userAvatars = useMemo(() => {
-        const avatars: {[key: string]: string} = {};
+    useMemo(() => {
         usersList.forEach(user => {
-            if (!avatars[user]) {
-                avatars[user] = faker.image.avatar();
+            if (!userAvatars[user]) {
+                const avatar = faker.image.avatar();
+                dispatch(addUserAvatar({ username: user, avatar }));
             }
         });
-        return avatars;
-    }, [usersList]);
+    }, [usersList, userAvatars, dispatch]);
 
     return (
         <div className="users-panel">

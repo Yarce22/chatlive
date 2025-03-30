@@ -1,76 +1,110 @@
-import { useState, useRef, useEffect } from "react"
-import { CardContent, Card, Form, FormField, Container, Input, Message, MessageHeader, Icon } from 'semantic-ui-react'
-import ScrollToBottom from 'react-scroll-to-bottom'
-
-interface Message {
-  id: string;
-  message: string;
-  from: string;
-  to?: string;
-  time: string;
-  read: boolean;
-}
+import { useState, useRef, useEffect } from "react";
+import { CardContent, Card, Form, FormField, Container, Input, Message as SemanticMessage, MessageHeader, Icon } from 'semantic-ui-react';
+import ScrollToBottom from 'react-scroll-to-bottom';
+import { Message as MessageType } from "../../store/slices/chatSlice.js";
+import { useAppDispatch } from "../../store/hooks.js";
+import { socketActions } from "../../store/middleware/socketMiddleware.js";
 
 interface ChatProps {
-  messages: Message[];
+  messages: MessageType[];
   sendMessage: (message: string) => void;
   recipient: string;
   currentUser: string;
 }
 
 const Chat = ({ messages, sendMessage, recipient, currentUser }: ChatProps) => {
-    const [currentMessage, setCurrentMessage] = useState('')
-    const messagesEndRef = useRef<HTMLDivElement>(null)
+    const [currentMessage, setCurrentMessage] = useState('');
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const dispatch = useAppDispatch();
     
     // Función para desplazarse al final de los mensajes
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
     
     // Desplazarse hacia abajo cuando cambian los mensajes
     useEffect(() => {
-        scrollToBottom()
-    }, [messages])
+        scrollToBottom();
+    }, [messages]);
+
+    // Marcar mensajes como leídos cuando se muestran en el chat activo
+    useEffect(() => {
+        // Verificar si hay mensajes nuevos para marcar como leídos
+        if (messages && messages.length > 0) {
+            // Procesar todos los mensajes no leídos del remitente actual
+            messages.forEach(message => {
+                if (!message.read && message.from === recipient) {
+                    console.log('Chat component: Marcando mensaje como leído:', message.id);
+                    dispatch({
+                        type: socketActions.MARK_AS_READ,
+                        payload: message.id
+                    });
+                }
+            });
+        }
+    }, [messages, recipient, dispatch]);
+    
+    // Resetear cuando cambia el chat activo
+    useEffect(() => {
+        console.log('Chat activo cambiado a:', recipient);
+    }, [recipient]);
     
     const handleSendMessage = () => {
         if (currentMessage.trim()) {
             sendMessage(currentMessage);
             setCurrentMessage('');
         }
-    }
+    };
+
+    // Función para renderizar el indicador de lectura
+    const renderReadIndicator = (messageData: MessageType) => {
+        if (messageData.from === currentUser) {
+            return (
+                <span className="read-status" style={{ marginLeft: '8px' }}>
+                    {messageData.read ? (
+                        <Icon name="check circle" color="blue" size="small" />
+                    ) : (
+                        <Icon name="check circle outline" color="grey" size="small" />
+                    )}
+                </span>
+            );
+        }
+        return null;
+    };
     
     return (
         <Container fluid className="chat-container">
             <Card>
                 <CardContent header={recipient} />
-                <div className="messages-area">
+                <div className="messages-area" style={{ height: '400px', overflowY: 'auto' }}>
                     <ScrollToBottom>
                         <CardContent>
-                            {messages.map((messageData, index) => {
-                                const isCurrentUser = messageData.from === currentUser;
-                                return (
-                                    <Message
-                                        key={index}
-                                        style={{ textAlign: isCurrentUser ? "right" : "left" }}
-                                        success={isCurrentUser}
-                                        info={!isCurrentUser}
-                                    >
-                                        <MessageHeader>{messageData.message}</MessageHeader>
-                                        <div className="message-footer">
-                                            <span className="message-time">{messageData.time}</span>
-                                            {isCurrentUser && (
-                                                <span className="read-status">
-                                                    {messageData.read ? (
-                                                        <Icon name="check circle" color="blue" />
-                                                    ) : (
-                                                        <Icon name="check circle outline" color="grey" />
-                                                    )}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </Message>
-                                );
-                            })}
+                            {messages.length === 0 ? (
+                                <div className="no-messages" style={{ textAlign: 'center', padding: '20px' }}>
+                                    <p>No hay mensajes. ¡Envía el primero!</p>
+                                </div>
+                            ) : (
+                                messages.map((messageData, index) => {
+                                    const isCurrentUser = messageData.from === currentUser;
+                                    return (
+                                        <SemanticMessage
+                                            key={`${messageData.id || index}-${messageData.read ? 'read' : 'unread'}`}
+                                            style={{ 
+                                                textAlign: isCurrentUser ? "right" : "left",
+                                                marginBottom: '10px'
+                                            }}
+                                            success={isCurrentUser}
+                                            info={!isCurrentUser}
+                                        >
+                                            <MessageHeader>{messageData.message}</MessageHeader>
+                                            <div className="message-footer" style={{ display: 'flex', justifyContent: isCurrentUser ? 'flex-end' : 'flex-start', alignItems: 'center' }}>
+                                                <span className="message-time" style={{ fontSize: '0.8em', color: '#888' }}>{messageData.time}</span>
+                                                {renderReadIndicator(messageData)}
+                                            </div>
+                                        </SemanticMessage>
+                                    );
+                                })
+                            )}
                             <div ref={messagesEndRef} />
                         </CardContent>
                     </ScrollToBottom>
@@ -83,7 +117,8 @@ const Chat = ({ messages, sendMessage, recipient, currentUser }: ChatProps) => {
                                     fluid 
                                     action={{
                                         content: 'Enviar',
-                                        onClick: handleSendMessage
+                                        onClick: handleSendMessage,
+                                        color: 'blue'
                                     }}
                                     placeholder="Escribe un mensaje..."
                                     value={currentMessage}
@@ -96,7 +131,7 @@ const Chat = ({ messages, sendMessage, recipient, currentUser }: ChatProps) => {
                 </div>
             </Card>
         </Container>
-    )
-}
+    );
+};
 
-export { Chat }
+export { Chat };
