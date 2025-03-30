@@ -30,7 +30,6 @@ export const usersSlice = createSlice({
 
 export const { setUsersList, addUserAvatar, setUserAvatars } = usersSlice.actions;
 
-// Selectors
 export const selectUsersList = (state: RootState) => state.users.usersList;
 export const selectUserAvatars = (state: RootState) => state.users.userAvatars;
 

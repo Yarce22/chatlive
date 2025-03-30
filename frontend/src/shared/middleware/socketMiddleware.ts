@@ -1,15 +1,8 @@
-/**
- * Middleware de sockets para Redux
- * Este middleware permite la comunicaciu00f3n en tiempo real entre el frontend y el backend
- * utilizando Socket.IO, y se integra con el flujo de Redux.
- */
-
 import { io, Socket } from 'socket.io-client';
 import { Middleware } from '@reduxjs/toolkit';
 import { Group, Message } from '../types';
 import { AppDispatch, RootState } from '../../store';
 
-// Importaciu00f3n de acciones desde sus respectivos slices
 import { 
   receiveMessage, 
   markMessageAsRead, 
@@ -21,15 +14,13 @@ import {
   updateGroup,
   addMemberToGroup,
   removeMemberFromGroup
-} from '../../features/chat/slices/chatSlice';
+} from '../../store/slices/chatSlice';
 
-import { setUsersList } from '../../features/users/slices/usersSlice';
-import { login as userLogin } from '../../features/auth/slices/userSlice';
+import { setUsersList } from '../../store/slices/usersSlice';
+import { login as userLogin } from '../../store/slices/userSlice';
 
-// Configuraciones
 import { SOCKET_SERVER_URL } from '../config/constants';
 
-// Tipos para las acciones
 interface MessagePayload {
   message: string;
   to: string;
@@ -53,7 +44,6 @@ interface GroupActionPayload {
   updates?: Partial<Group>;
 }
 
-// Tipo base para las acciones de socket
 type ActionPayload = string | MessagePayload | { messageId: string } | CreateGroupPayload | GroupMessagePayload | GroupActionPayload;
 
 interface SocketAction {
@@ -61,7 +51,6 @@ interface SocketAction {
   payload: ActionPayload;
 }
 
-// Acciones personalizadas para el middleware
 export const socketActions = {
   SEND_MESSAGE: 'socket/sendMessage',
   MARK_AS_READ: 'socket/markAsRead',
@@ -75,11 +64,6 @@ export const socketActions = {
   UPDATE_GROUP: 'socket/updateGroup'
 };
 
-/**
- * Verificador de tipo para acciones de socket
- * @param action - La acciu00f3n a verificar
- * @returns Boolean indicando si la acciu00f3n es una acciu00f3n de socket vu00e1lida
- */
 const isSocketAction = (action: unknown): action is SocketAction => {
   return (
     typeof action === 'object' &&
@@ -89,14 +73,8 @@ const isSocketAction = (action: unknown): action is SocketAction => {
   );
 };
 
-// Singleton para la instancia de socket
 let socket: Socket | null = null;
 
-/**
- * Inicializa y devuelve una instancia de Socket.IO
- * Implementa el patru00f3n Singleton para garantizar una u00fanica instancia
- * @returns Una instancia de Socket.IO
- */
 const initializeSocket = (): Socket => {
   if (!socket) {
     socket = io(SOCKET_SERVER_URL);
@@ -104,25 +82,17 @@ const initializeSocket = (): Socket => {
   return socket;
 };
 
-/**
- * Configura los listeners del socket
- * @param socket - La instancia del socket
- * @param store - El store de Redux
- */
 const setupSocketListeners = (socket: Socket, store: { getState: () => RootState; dispatch: AppDispatch }) => {
   if (!socket.hasListeners('users_list')) {
-    // Listener para la lista de usuarios
     socket.on('users_list', (users: string[]) => {
       const state = store.getState();
       const username = state.user.username;
       store.dispatch(setUsersList(users.filter(user => user !== username)));
     });
 
-    // Listener para mensajes privados recibidos
     socket.on('receive_private_message', (data: Message) => {
       store.dispatch(receiveMessage(data));
       
-      // Si es el chat activo, marcar el mensaje como leu00eddo inmediatamente
       const state = store.getState();
       if (state.chat.activeChat === data.from && !state.chat.activeChatIsGroup) {
         socket.emit('message_read', data.id);
@@ -130,14 +100,10 @@ const setupSocketListeners = (socket: Socket, store: { getState: () => RootState
       }
     });
 
-    // Listener para confirmaciu00f3n de mensajes enviados
     socket.on('message_sent', (data: Message) => {
-      // No volver a au00f1adir el mensaje, ya que lo au00f1adimos antes de enviarlo
       console.log('Mensaje enviado confirmado por el servidor:', data.id);
       
-      // Actualizar el ID del mensaje si el servidor asignu00f3 uno nuevo
       if (data.id) {
-        // Buscar el mensaje en el estado actual y actualizarlo si es necesario
         const state = store.getState();
         const chats = state.chat.chats;
         
@@ -145,10 +111,8 @@ const setupSocketListeners = (socket: Socket, store: { getState: () => RootState
           const messages = chats[data.to];
           const lastMessage = messages[messages.length - 1];
           
-          // Si el u00faltimo mensaje tiene un ID temporal diferente, actualizarlo
           if (lastMessage && lastMessage.from === state.user.username && 
               lastMessage.message === data.message && lastMessage.id !== data.id) {
-            // Marcar el mensaje con el ID correcto como leu00eddo si el original estaba marcado como leu00eddo
             if (lastMessage.read) {
               store.dispatch(markMessageAsRead(data.id));
             }
@@ -157,31 +121,25 @@ const setupSocketListeners = (socket: Socket, store: { getState: () => RootState
           const messages = chats[data.groupId];
           const lastMessage = messages[messages.length - 1];
           
-          // Si el u00faltimo mensaje tiene un ID temporal diferente, actualizarlo
           if (lastMessage && lastMessage.from === state.user.username && 
               lastMessage.message === data.message && lastMessage.id !== data.id) {
-            // Marcar el mensaje con el ID correcto como leu00eddo si el original estaba marcado como leu00eddo
             if (lastMessage.read) {
               store.dispatch(markMessageAsRead(data.id));
             }
           }
-        }
+        } 
       }
     });
 
-    // Listener para confirmaciu00f3n de lectura de mensajes
     socket.on('message_read_confirmation', (messageId: string) => {
       console.log('Mensaje marcado como leu00eddo:', messageId);
       store.dispatch(markMessageAsRead(messageId));
     });
 
-    // Listeners para grupos
     socket.on('group_created', (group: Group) => {
       console.log('Grupo creado:', group);
       store.dispatch(createGroup(group));
     });
-
-    // Listener para la lista de grupos
     socket.on('groups_list', (groups: Group[]) => {
       console.log('Lista de grupos recibida:', groups);
       groups.forEach(group => {
@@ -193,7 +151,6 @@ const setupSocketListeners = (socket: Socket, store: { getState: () => RootState
       console.log('Mensaje de grupo recibido:', data);
       store.dispatch(addGroupMessage(data));
       
-      // Si es el chat de grupo activo, marcar el mensaje como leu00eddo inmediatamente
       const state = store.getState();
       if (state.chat.activeChat === data.groupId && state.chat.activeChatIsGroup) {
         socket.emit('message_read', data.id);
@@ -218,30 +175,18 @@ const setupSocketListeners = (socket: Socket, store: { getState: () => RootState
 
     socket.on('removed_from_group', (data: {groupId: string}) => {
       console.log('Has sido eliminado del grupo:', data.groupId);
-      // Si el chat activo es el grupo del que fuiste eliminado, cambiar a otro chat
       const state = store.getState();
       if (state.chat.activeChat === data.groupId && state.chat.activeChatIsGroup) {
-        // Cambiar a ningu00fan chat activo
         store.dispatch(setActiveChat({ chatId: '', isGroup: false }));
       }
     });
   }
 };
 
-/**
- * Middleware de Socket.IO para Redux
- * Intercepta acciones relacionadas con sockets y las gestiona adecuadamente
- */
 export const socketMiddleware: Middleware = store => next => (action: unknown) => {
-  // Asegurarse de que el socket estu00e9 inicializado
   const socket = initializeSocket();
-  
-  // Configurar listeners de socket
   setupSocketListeners(socket, store);
-
-  // Verificar que la acciu00f3n tenga la estructura correcta
   if (!isSocketAction(action)) {
-    // Si es la acciu00f3n setActiveChat, manejarla especialmente
     if (action && typeof action === 'object' && 'type' in action && action.type === setActiveChat.type) {
       const payload = 'payload' in action ? action.payload : null;
       if (payload && typeof payload === 'object' && 'chatId' in payload) {
@@ -252,10 +197,8 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
         console.log('Cambiando a chat activo:', chatId, 'isGroup:', isGroup);
         console.log('Mensajes en este chat:', messages.length);
         
-        // Resetear contador de mensajes no leu00eddos
         store.dispatch(clearUnreadMessages(chatId));
         
-        // Marcar todos los mensajes no leu00eddos como leu00eddos
         let unreadMessagesCount = 0;
         messages.forEach((message: Message) => {
           if (!message.read && ((isGroup && message.groupId === chatId) || (!isGroup && message.from === chatId))) {
@@ -273,19 +216,10 @@ export const socketMiddleware: Middleware = store => next => (action: unknown) =
     return next(action);
   }
 
-  // Manejar acciones especu00edficas de socket
   handleSocketAction(action, socket, store);
-
-  // Pasar la acciu00f3n al siguiente middleware
   return next(action);
 };
 
-/**
- * Maneja acciones especu00edficas de socket
- * @param action - La acciu00f3n a manejar
- * @param socket - La instancia del socket
- * @param store - El store de Redux
- */
 const handleSocketAction = (action: SocketAction, socket: Socket, store: { getState: () => RootState; dispatch: AppDispatch }) => {
   if (action.type === socketActions.LOGIN && typeof action.payload === 'string') {
     socket.emit('login', action.payload);
@@ -303,10 +237,8 @@ const handleSocketAction = (action: SocketAction, socket: Socket, store: { getSt
       read: false
     };
     
-    // Au00f1adir mensaje al estado local
     store.dispatch(addMessage(messageData));
     
-    // Enviar mensaje al servidor
     socket.emit('private_message', messageData);
   } else if (action.type === socketActions.MARK_AS_READ && typeof action.payload === 'string') {
     const messageId = action.payload;
@@ -317,7 +249,6 @@ const handleSocketAction = (action: SocketAction, socket: Socket, store: { getSt
     const payload = action.payload as CreateGroupPayload;
     const state = store.getState();
     
-    // Au00f1adir al usuario actual como miembro del grupo
     const members = [...payload.members];
     if (!members.includes(state.user.username)) {
       members.push(state.user.username);
@@ -330,7 +261,6 @@ const handleSocketAction = (action: SocketAction, socket: Socket, store: { getSt
       createdBy: state.user.username
     };
     
-    // Enviar la solicitud de creaciu00f3n de grupo al servidor
     socket.emit('create_group', groupData);
   } else if (action.type === socketActions.SEND_GROUP_MESSAGE && typeof action.payload === 'object' && 'message' in action.payload && 'groupId' in action.payload) {
     const payload = action.payload as GroupMessagePayload;
@@ -346,10 +276,8 @@ const handleSocketAction = (action: SocketAction, socket: Socket, store: { getSt
       groupId: payload.groupId
     };
     
-    // Au00f1adir mensaje al estado local
     store.dispatch(addGroupMessage(messageData));
     
-    // Enviar mensaje al servidor
     socket.emit('group_message', messageData);
   } else if (action.type === socketActions.ADD_MEMBER_TO_GROUP && typeof action.payload === 'object' && 'groupId' in action.payload && 'username' in action.payload) {
     const payload = action.payload as GroupActionPayload;

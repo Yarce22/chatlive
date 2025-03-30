@@ -1,9 +1,5 @@
-/**
- * Servicio para el manejo centralizado de errores en la aplicación
- */
 import React from 'react';
 
-// Tipos de errores
 export enum ErrorType {
   Network = 'NETWORK_ERROR',
   Auth = 'AUTHENTICATION_ERROR',
@@ -13,7 +9,6 @@ export enum ErrorType {
   Unknown = 'UNKNOWN_ERROR'
 }
 
-// Interfaz para errores estructurados
 export interface AppError {
   type: ErrorType;
   message: string;
@@ -23,22 +18,10 @@ export interface AppError {
   originalError?: Error;
 }
 
-/**
- * Clase para el manejo centralizado de errores
- */
 class ErrorService {
   private errorListeners: Array<(error: AppError) => void> = [];
   private errors: AppError[] = [];
   
-  /**
-   * Captura y procesa un error
-   * @param type - Tipo de error
-   * @param message - Mensaje de error
-   * @param originalError - Error original (opcional)
-   * @param data - Datos adicionales (opcional)
-   * @param code - Código de error (opcional)
-   * @returns El error procesado
-   */
   captureError(type: ErrorType, message: string, originalError?: Error, data?: any, code?: string): AppError {
     const appError: AppError = {
       type,
@@ -49,13 +32,10 @@ class ErrorService {
       originalError
     };
     
-    // Guardar el error en el historial
     this.errors.push(appError);
     
-    // Notificar a los listeners
     this.notifyListeners(appError);
     
-    // Registrar en la consola (en desarrollo)
     if (import.meta.env.MODE !== 'production') {
       console.error(`[${type}]`, message, originalError || '');
     }
@@ -63,11 +43,6 @@ class ErrorService {
     return appError;
   }
   
-  /**
-   * Registra un listener para recibir notificaciones de errores
-   * @param listener - Función que manejará los errores
-   * @returns Función para eliminar el listener
-   */
   addListener(listener: (error: AppError) => void): () => void {
     this.errorListeners.push(listener);
     return () => {
@@ -75,10 +50,6 @@ class ErrorService {
     };
   }
   
-  /**
-   * Notifica a todos los listeners sobre un nuevo error
-   * @param error - El error a notificar
-   */
   private notifyListeners(error: AppError): void {
     this.errorListeners.forEach(listener => {
       try {
@@ -88,35 +59,19 @@ class ErrorService {
       }
     });
   }
-  
-  /**
-   * Obtiene los últimos N errores registrados
-   * @param limit - Número de errores a obtener
-   * @returns Array con los últimos errores
-   */
+
   getRecentErrors(limit: number = 10): AppError[] {
     return [...this.errors].slice(-limit);
   }
   
-  /**
-   * Limpia el historial de errores
-   */
   clearErrors(): void {
     this.errors = [];
   }
 }
 
-// Exportar una única instancia (singleton)
 export const errorService = new ErrorService();
 
-/**
- * Maneja errores de forma centralizada
- * @param error - Error capturado
- * @param errorType - Tipo de error (opcional, por defecto Unknown)
- * @param additionalData - Datos adicionales (opcional)
- * @returns El error procesado
- */
-export function handleError(error: any, errorType: ErrorType = ErrorType.Unknown, additionalData?: any): AppError {
+export function handleError(error, errorType: ErrorType = ErrorType.Unknown, additionalData?: any): AppError {
   let message = 'Se produjo un error desconocido';
   let errorCode;
   
@@ -132,11 +87,6 @@ export function handleError(error: any, errorType: ErrorType = ErrorType.Unknown
   return errorService.captureError(errorType, message, error instanceof Error ? error : undefined, additionalData, errorCode);
 }
 
-/**
- * High-order component para capturar errores de componentes React
- * @param Component - Componente a envolver
- * @returns Componente con manejo de errores
- */
 export function withErrorHandling<P>(Component: React.ComponentType<P>): React.FC<P> {
   return (props: P) => {
     try {

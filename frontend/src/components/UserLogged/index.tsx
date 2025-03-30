@@ -1,6 +1,6 @@
 import { List, ListItem, Image, ListContent, ListHeader, Label, Button, Modal, Form, Checkbox } from "semantic-ui-react";
 import { faker } from '@faker-js/faker'
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks.js';
 import { selectUserAvatars, addUserAvatar } from '../../store/slices/usersSlice.js';
 import { selectGroups } from '../../store/slices/chatSlice.js';
@@ -22,8 +22,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
     const [groupName, setGroupName] = useState('');
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
     
-    // Usar useMemo para crear un objeto que mapee nombres de usuario a URLs de avatar
-    // Este objeto solo se recalculará cuando cambie la lista de usuarios
     useMemo(() => {
         usersList.forEach(user => {
             if (!userAvatars[user]) {
@@ -33,7 +31,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
         });
     }, [usersList, userAvatars, dispatch]);
 
-    // Generar avatares para grupos
     const groupAvatars = useMemo(() => {
         const avatars: {[key: string]: string} = {};
         Object.values(groups).forEach(group => {
@@ -53,7 +50,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
                     members: selectedMembers
                 }
             });
-            // Limpiar el formulario y cerrar el modal
             setGroupName('');
             setSelectedMembers([]);
             setIsModalOpen(false);
@@ -75,7 +71,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
         });
     };
 
-    // Filtrar usuarios y grupos según el término de búsqueda
     const filteredUsers = usersList.filter(user => 
         user.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -83,11 +78,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
     const filteredGroups = Object.values(groups).filter(group => 
         group.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    // Efecto para loguear cuando cambian los grupos
-    useEffect(() => {
-        console.log('Grupos actualizados:', groups);
-    }, [groups]);
 
     return (
         <div className="users-panel">
@@ -164,7 +154,6 @@ const UserLogged: React.FC<UserLoggedProps> = ({ usersList, activeChat, unreadMe
                 )}
             </div>
             
-            {/* Modal para crear grupo */}
             <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)}>
                 <Modal.Header>Crear nuevo grupo</Modal.Header>
                 <Modal.Content>

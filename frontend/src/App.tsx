@@ -36,7 +36,6 @@ function App() {
   const sendMessage = (message: string) => {
     if (message && activeChat) {
       if (activeChatIsGroup) {
-        // Enviar mensaje al grupo
         dispatch({
           type: socketActions.SEND_GROUP_MESSAGE,
           payload: {
@@ -45,7 +44,6 @@ function App() {
           }
         });
       } else {
-        // Enviar mensaje privado
         dispatch({
           type: socketActions.SEND_MESSAGE,
           payload: {

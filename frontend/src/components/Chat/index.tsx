@@ -20,26 +20,19 @@ const Chat = ({ messages, sendMessage, recipient, currentUser, isGroup = false }
     const dispatch = useAppDispatch();
     const group = useAppSelector(state => isGroup ? selectGroup(state, recipient) : null);
     
-    // Función para desplazarse al final de los mensajes
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
     
-    // Desplazarse hacia abajo cuando cambian los mensajes
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
-    // Marcar mensajes como leídos cuando se muestran en el chat activo
     useEffect(() => {
-        // Verificar si hay mensajes nuevos para marcar como leídos
         if (messages && messages.length > 0) {
-            // Procesar todos los mensajes no leídos del remitente actual o del grupo actual
             messages.forEach(message => {
                 if (!message.read) {
-                    // Para mensajes de grupo, verificar si el mensaje pertenece a este grupo
                     if ((isGroup && message.groupId === recipient) || 
-                        // Para mensajes privados, verificar si el mensaje es del usuario seleccionado
                         (!isGroup && message.from === recipient)) {
                         
                         console.log('Chat component: Marcando mensaje como leído:', message.id);
@@ -53,7 +46,6 @@ const Chat = ({ messages, sendMessage, recipient, currentUser, isGroup = false }
         }
     }, [messages, recipient, dispatch, isGroup]);
     
-    // Resetear cuando cambia el chat activo
     useEffect(() => {
         console.log('Chat activo cambiado a:', recipient, isGroup ? '(grupo)' : '(usuario)');
     }, [recipient, isGroup]);
@@ -65,7 +57,6 @@ const Chat = ({ messages, sendMessage, recipient, currentUser, isGroup = false }
         }
     };
 
-    // Función para renderizar el indicador de lectura
     const renderReadIndicator = (messageData: MessageType) => {
         if (messageData.from === currentUser) {
             return (
@@ -81,7 +72,6 @@ const Chat = ({ messages, sendMessage, recipient, currentUser, isGroup = false }
         return null;
     };
 
-    // Obtener el título del chat (nombre del usuario o nombre del grupo)
     const chatTitle = isGroup && group ? group.name : recipient;
     
     return (

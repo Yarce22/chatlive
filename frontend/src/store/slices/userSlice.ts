@@ -34,7 +34,6 @@ export const userSlice = createSlice({
 
 export const { setUsername, setLogged, login, logout } = userSlice.actions;
 
-// Selectors
 export const selectUsername = (state: RootState) => state.user.username;
 export const selectLogged = (state: RootState) => state.user.logged;
 

@@ -43,16 +43,13 @@ export const chatSlice = createSlice({
       state.activeChat = action.payload.chatId;
       state.activeChatIsGroup = action.payload.isGroup;
       
-      // Si no existe el chat, lo creamos
       if (!state.chats[action.payload.chatId]) {
         state.chats[action.payload.chatId] = [];
       }
       
-      // Inicializar contador de mensajes no leídos si no existe
       if (state.unreadMessages[action.payload.chatId] === undefined) {
         state.unreadMessages[action.payload.chatId] = 0;
       } else {
-        // Resetear contador de mensajes no leídos para este chat
         state.unreadMessages[action.payload.chatId] = 0;
       }
 
@@ -63,35 +60,28 @@ export const chatSlice = createSlice({
       const { from, to } = action.payload;
       const chatUser = to || from;
       
-      // Crear el chat si no existe
       if (!state.chats[chatUser]) {
         state.chats[chatUser] = [];
       }
       
-      // Verificar si el mensaje ya existe para evitar duplicados
       const messageExists = state.chats[chatUser].some(msg => msg.id === action.payload.id);
       
       if (!messageExists) {
-        // Añadir el mensaje solo si no existe
         state.chats[chatUser].push(action.payload);
       }
     },
     receiveMessage: (state, action: PayloadAction<Message>) => {
       const { from } = action.payload;
       
-      // Crear el chat si no existe
       if (!state.chats[from]) {
         state.chats[from] = [];
       }
       
-      // Verificar si el mensaje ya existe para evitar duplicados
       const messageExists = state.chats[from].some(msg => msg.id === action.payload.id);
       
       if (!messageExists) {
-        // Añadir el mensaje solo si no existe
         state.chats[from].push(action.payload);
         
-        // Incrementar contador de mensajes no leídos si no es el chat activo
         if (state.activeChat !== from) {
           if (state.unreadMessages[from] === undefined) {
             state.unreadMessages[from] = 1;
@@ -108,7 +98,6 @@ export const chatSlice = createSlice({
       const messageId = action.payload;
       let messageFound = false;
       
-      // Actualizar estado de lectura para el mensaje en todos los chats
       Object.keys(state.chats).forEach(chatUser => {
         state.chats[chatUser] = state.chats[chatUser].map(msg => {
           if (msg.id === messageId && !msg.read) {
@@ -133,7 +122,6 @@ export const chatSlice = createSlice({
     createGroup: (state, action: PayloadAction<Group>) => {
       const group = action.payload;
       state.groups[group.id] = group;
-      // Crear un chat vacío para el grupo
       if (!state.chats[group.id]) {
         state.chats[group.id] = [];
       }
@@ -162,19 +150,15 @@ export const chatSlice = createSlice({
     addGroupMessage: (state, action: PayloadAction<Message>) => {
       const { groupId } = action.payload;
       if (groupId) {
-        // Crear el chat de grupo si no existe
         if (!state.chats[groupId]) {
           state.chats[groupId] = [];
         }
         
-        // Verificar si el mensaje ya existe para evitar duplicados
         const messageExists = state.chats[groupId].some(msg => msg.id === action.payload.id);
         
         if (!messageExists) {
-          // Añadir el mensaje solo si no existe
           state.chats[groupId].push(action.payload);
           
-          // Incrementar contador de mensajes no leídos si no es el chat activo
           if (state.activeChat !== groupId) {
             if (state.unreadMessages[groupId] === undefined) {
               state.unreadMessages[groupId] = 1;
@@ -202,7 +186,6 @@ export const {
   addGroupMessage
 } = chatSlice.actions;
 
-// Selectors
 export const selectActiveChat = (state: RootState) => state.chat.activeChat;
 export const selectActiveChatIsGroup = (state: RootState) => state.chat.activeChatIsGroup;
 export const selectChats = (state: RootState) => state.chat.chats;
