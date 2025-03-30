@@ -72,7 +72,7 @@ let socket: Socket | null = null;
 
 const initializeSocket = (): Socket => {
   if (!socket) {
-    socket = io('http://localhost:3000');
+    socket = io(import.meta.env.BASE_URL);
   }
   return socket;
 };
